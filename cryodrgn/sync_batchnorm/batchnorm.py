@@ -60,7 +60,11 @@ _MasterMessage = collections.namedtuple('_MasterMessage', ['sum', 'inv_std'])
 
 class _SynchronizedBatchNorm(_BatchNorm):
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
-        assert ReduceAddCoalesced is not None, 'Can not use Synchronized Batch Normalization without CUDA support.'
+        # Allow creation without CUDA support (e.g., for MPS), but it will fall back to standard BatchNorm
+        if ReduceAddCoalesced is None:
+            import warnings
+            warnings.warn('Synchronized Batch Normalization requires CUDA support. '
+                        'Falling back to standard BatchNorm behavior.')
 
         super(_SynchronizedBatchNorm, self).__init__(num_features, eps=eps, momentum=momentum, affine=affine,
                                                      track_running_stats=track_running_stats)
@@ -69,15 +73,19 @@ class _SynchronizedBatchNorm(_BatchNorm):
             import warnings
             warnings.warn('track_running_stats=False is not supported by the SynchronizedBatchNorm.')
 
-        self._sync_master = SyncMaster(self._data_parallel_master)
+        # Only initialize sync_master if CUDA operations are available
+        if ReduceAddCoalesced is not None:
+            self._sync_master = SyncMaster(self._data_parallel_master)
+        else:
+            self._sync_master = None
 
         self._is_parallel = False
         self._parallel_id = None
         self._slave_pipe = None
 
     def forward(self, input):
-        # If it is not parallel computation or is in evaluation mode, use PyTorch's implementation.
-        if not (self._is_parallel and self.training):
+        # If it is not parallel computation, is in evaluation mode, or CUDA not available, use PyTorch's implementation.
+        if not (self._is_parallel and self.training) or self._sync_master is None:
             return F.batch_norm(
                 input, self.running_mean, self.running_var, self.weight, self.bias,
                 self.training, self.momentum, self.eps)

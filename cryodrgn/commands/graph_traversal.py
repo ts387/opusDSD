@@ -82,9 +82,10 @@ def main(args):
     if args.max_images is not None:
         data = data[:args.max_images]
 
-    use_cuda = torch.cuda.is_available()
-    print(f'Use cuda {use_cuda}')
-    device = torch.device('cuda' if use_cuda else 'cpu')
+    from cryodrgn import utils
+    device = utils.get_default_device()
+    device_type = utils.get_device_type()
+    print(f'Using device: {device_type}')
     data = data.to(device)
 
     N, D = data.shape

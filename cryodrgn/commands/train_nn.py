@@ -174,13 +174,17 @@ def main(args):
     torch.manual_seed(args.seed)
 
     ## set the device
-    use_cuda = torch.cuda.is_available()
-    device = torch.device('cuda' if use_cuda else 'cpu')
-    flog('Use cuda {}'.format(use_cuda))
-    if use_cuda:
-        torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    else:
-        flog('WARNING: No GPUs detected')
+    device = utils.get_default_device()
+    use_gpu = utils.is_gpu_available()
+    device_type = utils.get_device_type()
+    flog('Using device: {}'.format(device_type))
+    if not use_gpu:
+        log('WARNING: No GPUs detected (neither CUDA nor MPS)')
+
+    # MPS doesn't support DataParallel, so disable multigpu for MPS
+    if device_type == 'mps' and args.multigpu:
+        log('WARNING: Multi-GPU training not supported on MPS (Apple Silicon). Disabling multigpu.')
+        args.multigpu = False
 
     # load the particles
     if args.ind is not None: 
@@ -248,13 +252,15 @@ def main(args):
         model, optim = amp.initialize(model, optim, opt_level='O1')
 
     # parallelize
-    if args.multigpu and torch.cuda.device_count() > 1:
+    if args.multigpu and device_type == 'cuda' and torch.cuda.device_count() > 1:
         flog(f'Using {torch.cuda.device_count()} GPUs!')
         args.batch_size *= torch.cuda.device_count()
         flog(f'Increasing batch size to {args.batch_size}')
         model = nn.DataParallel(model)
-    elif args.multigpu:
+    elif args.multigpu and device_type == 'cuda':
         flog(f'WARNING: --multigpu selected, but {torch.cuda.device_count()} GPUs detected')
+    elif device_type == 'mps':
+        log('Using MPS (Apple Silicon GPU) for training')
 
 
     # train

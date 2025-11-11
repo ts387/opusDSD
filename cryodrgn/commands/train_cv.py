@@ -643,14 +643,17 @@ def main(args):
     torch.manual_seed(args.seed)
 
     # set the device
-    use_cuda = torch.cuda.is_available()
-    device = torch.device('cuda' if use_cuda else 'cpu')
-    flog('Use cuda {}'.format(use_cuda))
-    if use_cuda:
-        #torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        pass
-    else:
-        log('WARNING: No GPUs detected')
+    device = utils.get_default_device()
+    use_gpu = utils.is_gpu_available()
+    device_type = utils.get_device_type()
+    flog('Using device: {}'.format(device_type))
+    if not use_gpu:
+        log('WARNING: No GPUs detected (neither CUDA nor MPS)')
+
+    # MPS doesn't support DataParallel, so disable multigpu for MPS
+    if device_type == 'mps' and args.multigpu:
+        log('WARNING: Multi-GPU training not supported on MPS (Apple Silicon). Disabling multigpu.')
+        args.multigpu = False
 
     # set beta schedule
     assert args.beta_control, "Need to set beta control weight for schedule {}".format(args.beta)
@@ -701,14 +704,19 @@ def main(args):
     if args.encode_mode == 'conv':
         assert D-1 == 64, "Image size must be 64x64 for convolutional encoder"
     # parallelize
-    assert args.multigpu, "only support multigpu training"
-    if args.multigpu and torch.cuda.device_count() > 1:
+    # Note: MPS backend doesn't support multi-GPU, so only multigpu for CUDA
+    if device_type == 'cuda':
+        assert args.multigpu, "only support multigpu training for CUDA"
+    if args.multigpu and device_type == 'cuda' and torch.cuda.device_count() > 1:
         if args.num_gpus is not None:
             args.num_gpus = min(args.num_gpus, torch.cuda.device_count())
             num_gpus = min(args.num_gpus, torch.cuda.device_count())
         else:
             num_gpus = torch.cuda.device_count()
         args.batch_size *= num_gpus
+    elif device_type == 'mps':
+        # MPS uses single GPU
+        args.num_gpus = 1
 
     # load poses
     do_pose_sgd = args.do_pose_sgd
@@ -858,8 +866,8 @@ def main(args):
     else:
         start_epoch = 0
 
-    # parallelize
-    if args.multigpu and torch.cuda.device_count() > 1:
+    # parallelize (only for CUDA; MPS doesn't support DataParallel)
+    if args.multigpu and device_type == 'cuda' and torch.cuda.device_count() > 1:
         if args.num_gpus is not None:
             num_gpus = min(args.num_gpus, torch.cuda.device_count())
         else:
@@ -870,8 +878,10 @@ def main(args):
         model.encoder = nn.DataParallel(model.encoder, device_ids=device_ids)
         model.decoder = nn.DataParallel(model.decoder, device_ids=device_ids)
         #patch_replication_callback(model)
-    elif args.multigpu:
+    elif args.multigpu and device_type == 'cuda':
         log(f'WARNING: --multigpu selected, but {torch.cuda.device_count()} GPUs detected')
+    elif device_type == 'mps':
+        log('Using MPS (Apple Silicon GPU) for training')
 
     # create classwise sampler
     if not os.path.exists(args.split):

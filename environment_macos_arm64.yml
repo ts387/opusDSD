@@ -1,0 +1,77 @@
+# Environment file for Apple Silicon (M-Series) Macs
+# This environment supports MPS (Metal Performance Shaders) GPU acceleration
+#
+# To create the environment:
+#   conda env create -f environment_macos_arm64.yml
+#
+# To activate:
+#   conda activate opusdsd-mps
+
+name: opusdsd-mps
+
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Python
+  - python=3.10
+
+  # PyTorch with MPS support (requires PyTorch >= 2.0 for Apple Silicon)
+  - pytorch::pytorch>=2.0
+  - pytorch::torchvision
+  - pytorch::torchaudio
+
+  # Core scientific computing
+  - numpy>=1.21
+  - scipy>=1.8.0
+
+  # Data handling
+  - pandas>=1.4
+  - h5py
+
+  # Visualization
+  - matplotlib>=3.5
+  - seaborn>=0.11
+
+  # Machine learning
+  - scikit-learn>=1.0
+
+  # Numerical optimization
+  - numba>=0.55
+
+  # Other dependencies
+  - tqdm>=4.64
+  - pyyaml>=6.0
+  - pillow>=9.0
+  - joblib>=1.1
+
+  # Geometric tools
+  - healpy>=1.15
+
+  # UMAP for dimensionality reduction
+  - umap-learn>=0.5
+
+  # Configuration and utilities
+  - packaging
+  - setuptools
+  - pip
+  - wheel
+
+  # Optional: GUI support (may not be needed for headless operation)
+  # - pyqt
+
+  # Statistics
+  - statsmodels>=0.13
+
+  # Pip-only dependencies
+  - pip:
+    - astropy>=5.0
+    - monty>=2022.3
+
+# Notes:
+# - CUDA is not needed on Apple Silicon; PyTorch uses Metal Performance Shaders (MPS)
+# - Multi-GPU training is not supported on MPS (single GPU only)
+# - Some Linux-specific dependencies have been removed
+# - Version constraints are relaxed to allow conda to find compatible packages for arm64

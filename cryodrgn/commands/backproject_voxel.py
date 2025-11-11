@@ -68,12 +68,12 @@ def main(args):
         os.makedirs(os.path.dirname(args.o))
 
     ## set the device
-    use_cuda = torch.cuda.is_available()
-    device = torch.device('cuda' if use_cuda else 'cpu')
-    log('Use cuda {}'.format(use_cuda))
-    if use_cuda:
+    device = utils.get_default_device()
+    device_type = utils.get_device_type()
+    log('Using device: {}'.format(device_type))
+    if device.type == 'cuda':
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    else:
+    elif device.type == 'cpu':
         log('WARNING: No GPUs detected')
 
     # load the particles

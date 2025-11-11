@@ -15,6 +15,45 @@ import math
 _verbose = False
 ALIGN_CORNERS = True
 
+def get_default_device():
+    """
+    Get the default device for computation, preferring MPS (Apple Silicon) > CUDA > CPU
+
+    Returns:
+        torch.device: The device to use for computation
+    """
+    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return torch.device('mps')
+    elif torch.cuda.is_available():
+        return torch.device('cuda')
+    else:
+        return torch.device('cpu')
+
+def is_gpu_available():
+    """
+    Check if GPU acceleration is available (either CUDA or MPS)
+
+    Returns:
+        bool: True if GPU is available, False otherwise
+    """
+    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return True
+    return torch.cuda.is_available()
+
+def get_device_type():
+    """
+    Get a string describing the device type
+
+    Returns:
+        str: 'mps', 'cuda', or 'cpu'
+    """
+    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return 'mps'
+    elif torch.cuda.is_available():
+        return 'cuda'
+    else:
+        return 'cpu'
+
 def generateSmoothKernel(data, r):
     result = np.zeros_like(data)
     [k1, k2, m, n, o] = data.shape
@@ -49,7 +88,8 @@ def ncc_loss(y_true, y_pred, win=None, ndims=2):
     win = [9] * ndims if win is None else win
 
     # compute filters
-    sum_filt = torch.ones([1, 1, *win]).to("cuda")
+    # Use the same device as the input tensors
+    sum_filt = torch.ones([1, 1, *win]).to(I.device)
 
     pad_no = math.floor(win[0]/2)
 

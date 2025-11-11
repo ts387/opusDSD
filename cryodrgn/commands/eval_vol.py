@@ -80,9 +80,9 @@ def main(args):
     t1 = dt.now()
 
     ## set the device
-    use_cuda = torch.cuda.is_available()
-    log('Use cuda {}'.format(use_cuda))
-    device = torch.device('cuda' if use_cuda else 'cpu')
+    device = utils.get_default_device()
+    device_type = utils.get_device_type()
+    log('Using device: {}'.format(device_type))
     #if use_cuda:
     #    torch.set_default_tensor_type(torch.cuda.FloatTensor)
     #else:
