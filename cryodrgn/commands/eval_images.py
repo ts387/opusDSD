@@ -92,10 +92,12 @@ def main(args):
     device = utils.get_default_device()
     device_type = utils.get_device_type()
     log('Using device: {}'.format(device_type))
-    if device.type == 'cuda':
+    if device_type == 'cuda':
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    elif device.type == 'cpu':
-        log('WARNING: No GPUs detected')
+    elif device_type == 'mps':
+        pass  # MPS uses default tensor type
+    elif device_type == 'cpu':
+        log('WARNING: No GPUs detected (neither CUDA nor MPS)')
 
     log(args)
     cfg = config.overwrite_config(args.config, args)

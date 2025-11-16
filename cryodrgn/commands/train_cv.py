@@ -713,9 +713,13 @@ def main(args):
             num_gpus = min(args.num_gpus, torch.cuda.device_count())
         else:
             num_gpus = torch.cuda.device_count()
+            args.num_gpus = num_gpus
         args.batch_size *= num_gpus
     elif device_type == 'mps':
         # MPS uses single GPU
+        args.num_gpus = 1
+    else:
+        # CPU or single GPU CUDA
         args.num_gpus = 1
 
     # load poses

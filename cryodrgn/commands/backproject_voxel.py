@@ -71,10 +71,12 @@ def main(args):
     device = utils.get_default_device()
     device_type = utils.get_device_type()
     log('Using device: {}'.format(device_type))
-    if device.type == 'cuda':
+    if device_type == 'cuda':
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    elif device.type == 'cpu':
-        log('WARNING: No GPUs detected')
+    elif device_type == 'mps':
+        pass  # MPS uses default tensor type
+    elif device_type == 'cpu':
+        log('WARNING: No GPUs detected (neither CUDA nor MPS)')
 
     # load the particles
     if args.ind is not None:
@@ -96,7 +98,7 @@ def main(args):
         log('Loading ctf params from {}'.format(args.ctf))
         ctf_params = ctf.load_ctf_for_training(D-1, args.ctf)
         ctf_params = torch.tensor(ctf_params)
-        if args.ind is not None: ctf_params = ctf_params[ind]
+        if args.ind is not None: ctf_params = ctf_params[args.ind]
     else: ctf_params = None
     Apix = ctf_params[0,0] if ctf_params is not None else 1
 

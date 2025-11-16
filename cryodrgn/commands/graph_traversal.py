@@ -77,7 +77,7 @@ class Graph(object):
 def main(args):
     #data_np = pickle.load(open(args.data, 'rb'))
     #data = torch.from_numpy(data_np)
-    data = torch.load(args.data)["mu"].cpu().numpy()
+    data = torch.load(args.data)["mu"].cpu()  # Keep as tensor for device transfer
 
     if args.max_images is not None:
         data = data[:args.max_images]
@@ -158,7 +158,7 @@ def main(args):
     print(args.o)
     np.savetxt(args.o,full_path,fmt='%d')
     print(args.out_z)
-    np.savetxt(args.out_z, data_np[full_path])
+    np.savetxt(args.out_z, data[full_path].cpu().numpy())
 
 
 if __name__ == '__main__':
