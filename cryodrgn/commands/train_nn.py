@@ -258,7 +258,7 @@ def main(args):
         flog(f'Increasing batch size to {args.batch_size}')
         model = nn.DataParallel(model)
     elif args.multigpu and device_type == 'cuda':
-        flog(f'WARNING: --multigpu selected, but {torch.cuda.device_count()} GPUs detected')
+        log(f'WARNING: --multigpu selected, but {torch.cuda.device_count()} GPUs detected')
     elif device_type == 'mps':
         log('Using MPS (Apple Silicon GPU) for training')
 

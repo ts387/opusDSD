@@ -745,8 +745,6 @@ def main(args):
         assert D-1 == 64, "Image size must be 64x64 for convolutional encoder"
     # parallelize
     # Note: MPS backend doesn't support multi-GPU, so only multigpu for CUDA
-    if device_type == 'cuda':
-        assert args.multigpu, "only support multigpu training for CUDA"
     if args.multigpu and device_type == 'cuda' and torch.cuda.device_count() > 1:
         if args.num_gpus is not None:
             args.num_gpus = min(args.num_gpus, torch.cuda.device_count())
@@ -933,7 +931,7 @@ def main(args):
         start_epoch = 0
 
     # parallelize (only for CUDA; MPS doesn't support DataParallel)
-    if args.multigpu and device_type == 'cuda' and torch.cuda.device_count() >= 1:
+    if args.multigpu and device_type == 'cuda' and torch.cuda.device_count() > 1:
         if args.num_gpus is not None:
             num_gpus = min(args.num_gpus, torch.cuda.device_count())
         else:
