@@ -737,10 +737,18 @@ def main(args):
     # Note: MPS backend doesn't support multi-GPU, so only multigpu for CUDA
     if args.multigpu and device_type == 'cuda' and torch.cuda.device_count() > 1:
         if args.num_gpus is not None:
+            args.num_gpus = min(args.num_gpus, torch.cuda.device_count())
             num_gpus = args.num_gpus
         else:
             num_gpus = torch.cuda.device_count()
+            args.num_gpus = num_gpus
         args.batch_size *= num_gpus
+    elif device_type == 'mps':
+        # MPS uses single GPU
+        args.num_gpus = 1
+    else:
+        # CPU or single GPU CUDA
+        args.num_gpus = 1
 
     # load poses
     #if args.do_pose_sgd: assert args.domain == 'hartley', "Need to use --domain hartley if doing pose SGD"

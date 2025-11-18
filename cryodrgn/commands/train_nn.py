@@ -245,11 +245,15 @@ def main(args):
 
     # Mixed precision training with AMP
     if args.amp:
-        assert args.batch_size % 8 == 0
-        assert (D-1) % 8 == 0
-        assert args.dim % 8 == 0
-        # Also check zdim, enc_mask dim?
-        model, optim = amp.initialize(model, optim, opt_level='O1')
+        if device_type == 'mps':
+            log('WARNING: Mixed precision training with APEX AMP not supported on MPS (Apple Silicon). Disabling AMP.')
+            args.amp = False
+        else:
+            assert args.batch_size % 8 == 0
+            assert (D-1) % 8 == 0
+            assert args.dim % 8 == 0
+            # Also check zdim, enc_mask dim?
+            model, optim = amp.initialize(model, optim, opt_level='O1')
 
     # parallelize
     if args.multigpu and device_type == 'cuda' and torch.cuda.device_count() > 1:
