@@ -39,6 +39,24 @@ def load_particles(mrcs_txt_star, lazy=False, datadir=None, relion31=False, retu
     else:
         return particles, header
 
+def filter_particles(particles, ind):
+    '''
+    Keep the particles selected by ind, in the order ind lists them
+
+    The i-th image of the filtered stack is particles[ind[i]], so everything indexed per image
+    (poses, ctf, z) has to be filtered with the same ind to stay aligned with it
+    '''
+    ind = np.asarray(ind).reshape(-1)
+    if not np.issubdtype(ind.dtype, np.integer):
+        raise ValueError(f'--ind must hold integer particle indices, got dtype {ind.dtype}')
+    N = len(particles)
+    if len(ind) == 0:
+        raise ValueError('--ind selects no particles')
+    if ind.min() < 0 or ind.max() >= N:
+        raise ValueError(f'--ind holds indices in [{ind.min()}, {ind.max()}] but the particle stack has only {N} images')
+    log(f'Filtering {N} particles down to {len(ind)} with --ind')
+    return [particles[i] for i in ind]
+
 
 class LazyMRCData(data.Dataset):
     '''
@@ -48,6 +66,8 @@ class LazyMRCData(data.Dataset):
                  window=True, datadir=None, relion31=False, window_r=0.85, in_mem=True):
         #assert not keepreal, 'Not implemented error'
         particles = load_particles(mrcfile, True, datadir=datadir, relion31=relion31)
+        if ind is not None:
+            particles = filter_particles(particles, ind)
         N = len(particles)
         ny, nx = particles[0].get().shape
         assert ny == nx, "Images must be square"

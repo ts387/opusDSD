@@ -308,7 +308,7 @@ class PoseTracker(nn.Module):
                 rots = rots[ind]
         assert rots.shape == (Nimg,3,3), f"Input rotations have shape {rots.shape} but expected ({Nimg},3,3)"
 
-        body_eulers, body_trans = None, None
+        eulers, body_eulers, body_trans = None, None, None
 
         # translations if they exist
         if len(poses) == 2:
@@ -330,9 +330,9 @@ class PoseTracker(nn.Module):
             log("loaded eulers")
             eulers = poses[2]
             if ind is not None:
-                if len(trans) > Nimg: # HACK
+                if len(eulers) > Nimg: # HACK
                     eulers = eulers[ind]
-            assert eulers.shape == (Nimg,3), f"Input eulers have shape {trans.shape} but expected ({Nimg},3)"
+            assert eulers.shape == (Nimg,3), f"Input eulers have shape {eulers.shape} but expected ({Nimg},3)"
         elif len(poses) > 3:
             trans = poses[1]
             if ind is not None:
@@ -344,11 +344,16 @@ class PoseTracker(nn.Module):
             log("loaded eulers")
             eulers = poses[2]
             if ind is not None:
-                if len(trans) > Nimg: # HACK
+                if len(eulers) > Nimg: # HACK
                     eulers = eulers[ind]
             assert eulers.shape == (Nimg,3), f"Input eulers have shape {eulers.shape} but expected ({Nimg},3)"
             body_eulers = poses[3]
             body_trans = poses[4]
+            if ind is not None:
+                if len(body_eulers) > Nimg: # HACK
+                    body_eulers = body_eulers[ind]
+                if len(body_trans) > Nimg: # HACK
+                    body_trans = body_trans[ind]
             assert body_eulers.shape[0] == Nimg and body_eulers.shape[2] == 3, f"Input eulers have shape {body_eulers.shape} but expected ({Nimg},3)"
             assert body_trans.shape[0] == Nimg and body_trans.shape[2] == 2 and body_trans.shape[1] == body_eulers.shape[1], \
                                 f"Input translations have shape {body_trans.shape} but expected ({Nimg},2)"
@@ -356,7 +361,6 @@ class PoseTracker(nn.Module):
         else:
             log('WARNING: No translations provided')
             trans = None
-            eulers = None
 
         if latents is not None:
             load_kwargs = {}
@@ -364,6 +368,8 @@ class PoseTracker(nn.Module):
                 # PyTorch is new enough to support this arg (e.g. >= 2.x)
                 load_kwargs["weights_only"] = False  # or True, if you want safe weights-only loading
             latents = torch.load(latents, **load_kwargs)
+            assert len(latents["mu"]) == Nimg, f"Input latents have {len(latents['mu'])} codes but expected {Nimg}, " \
+                                               "they have to come from a run with the same --ind"
 
         return cls(rots, trans, D, emb_type, deform, deform_emb_size, eulers, latents, batch_size, body_eulers_np=body_eulers, body_trans_np=body_trans, affine_dim=affine_dim)
 
