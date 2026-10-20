@@ -67,7 +67,7 @@ def ihtn_center(V):
     V = np.fft.fftshift(V)
     V = np.fft.fftn(V)
     V = np.fft.fftshift(V)
-    V /= np.product(V.shape)
+    V /= np.prod(V.shape)
     return V.real - V.imag
 
 def symmetrize_ht(ht, preallocated=False):

@@ -85,7 +85,7 @@ def main(args):
             img.shape = (1,*img.shape) # (D,D) -> (1,D,D)
         cur = imgs[0]
         for img in imgs[1:]:
-            if img.fname == cur.fname and img.offset == cur.offset + 4*np.product(cur.shape):
+            if img.fname == cur.fname and img.offset == cur.offset + 4*np.prod(cur.shape):
                 cur.shape = (cur.shape[0] + 1, *cur.shape[1:])
             else:
                 ret.append(cur)
