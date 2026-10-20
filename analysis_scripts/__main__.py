@@ -1,5 +1,6 @@
 # mypackage/__main__.py
 import argparse
+import sys
 from . import wrapper
 #from .module2 import function2
 
@@ -45,7 +46,7 @@ def main():
 
     args = parser.parse_args()
     if args.command:
-        args.func(args)
+        sys.exit(args.func(args))
     else:
         parser.print_help()
 

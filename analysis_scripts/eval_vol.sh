@@ -1,3 +1,4 @@
+set -e
 case $3 in
     kmeans)
         dsd eval_vol --load $1/weights.$2.pkl --config $1/config.pkl --zfile $1/analyze.$2/kmeans$4/centers.txt -o $1/analyze.$2/kmeans$4/ --Apix $5 --num-bodies $6 $7

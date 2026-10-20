@@ -3,6 +3,12 @@ import subprocess
 import os
 import sys
 
+def run(cmd):
+    '''Run cmd and return its exit status, so dsdsh fails whenever the command it wraps fails'''
+    status = subprocess.call(cmd)
+    # a command killed by signal N reports -N, report it the way a shell would
+    return 128 - status if status < 0 else status
+
 class eval_vol:
     @classmethod
     def add_args(cls, parser):
@@ -27,9 +33,9 @@ class eval_vol:
             flip=''
         if args.method == 'dpc':
             assert args.kmeans is not None and args.dfk is not None
-            subprocess.call(['bash', script_path, args.resdir, str(args.N), args.method, str(args.num), str(args.apix), args.masks, str(args.kmeans), str(args.dfk), flip])
+            return run(['bash', script_path, args.resdir, str(args.N), args.method, str(args.num), str(args.apix), args.masks, str(args.kmeans), str(args.dfk), flip])
         else:
-            subprocess.call(['bash', script_path, args.resdir, str(args.N), args.method, str(args.num), str(args.apix), str(args.num_bodies), flip])
+            return run(['bash', script_path, args.resdir, str(args.N), args.method, str(args.num), str(args.apix), str(args.num_bodies), flip])
 
 class analyze:
     @classmethod
@@ -51,7 +57,7 @@ class analyze:
         if args.skip_umap:
             cmd.append('--skip-umap')
         cmd.extend(['--umap-cores', str(args.umap_cores)])
-        subprocess.call(cmd)
+        return run(cmd)
 
 class parse_pose:
     @classmethod
@@ -68,9 +74,9 @@ class parse_pose:
     def main(cls, args):
         script_path = os.path.join(os.path.dirname(__file__), 'parse_pose.sh')
         if args.relion31:
-            subprocess.call(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.resdir, str(args.N), str(args.kmeans), '--relion31'])
+            return run(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.resdir, str(args.N), str(args.kmeans), '--relion31'])
         else:
-            subprocess.call(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.resdir, str(args.N), str(args.kmeans),])
+            return run(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.resdir, str(args.N), str(args.kmeans),])
 
 class create_mask:
     @classmethod
@@ -120,7 +126,7 @@ class create_mask:
                         str(args.sphere_center[0]),
                         str(args.sphere_center[1]),
                         str(args.sphere_center[2])])
-        subprocess.call(cmd)
+        return run(cmd)
 
 class prepare:
     @classmethod
@@ -134,9 +140,9 @@ class prepare:
     def main(cls, args):
         script_path = os.path.join(os.path.dirname(__file__), 'prepare.sh')
         if args.relion31:
-            subprocess.call(['bash', script_path, args.starfile, str(args.D), str(args.apix), '--relion31'])
+            return run(['bash', script_path, args.starfile, str(args.D), str(args.apix), '--relion31'])
         else:
-            subprocess.call(['bash', script_path, args.starfile, str(args.D), str(args.apix),])
+            return run(['bash', script_path, args.starfile, str(args.D), str(args.apix),])
 
 class prepare_multi:
     @classmethod
@@ -156,11 +162,11 @@ class prepare_multi:
         script_path = os.path.join(os.path.dirname(__file__), 'prepare_multi.sh')
         if args.relion31:
             if args.volumes:
-                subprocess.call(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.masks, str(args.numb), '--volumes ' + args.volumes, '--outmasks ' + args.outmasks, '--relion31',])
+                return run(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.masks, str(args.numb), '--volumes ' + args.volumes, '--outmasks ' + args.outmasks, '--relion31',])
             else:
-                subprocess.call(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.masks, str(args.numb), '', '--outmasks ' + args.outmasks, '--relion31'])
+                return run(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.masks, str(args.numb), '', '--outmasks ' + args.outmasks, '--relion31'])
         else:
             if args.volumes:
-                subprocess.call(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.masks, str(args.numb), '--volumes ' + args.volumes, '--outmasks ' + args.outmasks,])
+                return run(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.masks, str(args.numb), '--volumes ' + args.volumes, '--outmasks ' + args.outmasks,])
             else:
-                subprocess.call(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.masks, str(args.numb), '--outmasks ' + args.outmasks,])
+                return run(['bash', script_path, args.starfile, str(args.D), str(args.apix), args.masks, str(args.numb), '--outmasks ' + args.outmasks,])

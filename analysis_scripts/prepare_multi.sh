@@ -1,3 +1,4 @@
+set -e
 starname=$(basename $1)
 dirn=$(dirname $1)
 filename=$(basename $starname .star)
