@@ -6,6 +6,7 @@ We have developed a structural heterogeneity resolving method for cryo-ET, **OPU
     2. [Covid Spike](#cov)
     3. [80S ribosome](#80s)
 4. [setup environment](#setup)
+   1. [Google Colab](#colab)
 5. [prepare data](#preparation)
 6. [training](#training)
    1. [train_cv](#train_cv)
@@ -127,6 +128,12 @@ git pull
 ```
 
 The inference pipeline of our program can run on any GPU which supports cuda and is fast to generate a 3D volume. However, the training of our program takes larger amount memory, we recommend using V100 GPUs at least.
+
+## Google Colab <div id="colab">
+
+<a href="https://colab.research.google.com/github/ts387/opusDSD/blob/main/colab/OPUS_DSD_Colab.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+
+The notebook [colab/OPUS_DSD_Colab.ipynb](colab/OPUS_DSD_Colab.ipynb) installs OPUS-DSD on a Colab GPU and runs the whole workflow from forms: data preparation from a RELION STAR file, mask creation, training in the background with checkpoints on Google Drive, latent space analysis, volume generation with a 3D viewer, multi-body dynamics, and export of per-cluster STAR files. It can generate a small synthetic dataset to try everything out first.
 
 # prepare data <a name="preparation"></a>
 
