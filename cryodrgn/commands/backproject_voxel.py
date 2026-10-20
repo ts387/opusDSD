@@ -71,37 +71,39 @@ def main(args):
     use_cuda = torch.cuda.is_available()
     device = torch.device('cuda' if use_cuda else 'cpu')
     log('Use cuda {}'.format(use_cuda))
-    if use_cuda:
-        torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    else:
+    if not use_cuda:
         log('WARNING: No GPUs detected')
 
     # load the particles
     if args.ind is not None:
         args.ind = utils.load_pkl(args.ind).astype(int)
     if args.tilt is None:
-        data = dataset.LazyMRCData(args.particles, norm=(0,1), invert_data=args.invert_data, datadir=args.datadir, ind=args.ind)
+        # backprojection needs the symmetrized HT of every image, LazyMRCData hands out real space images by default
+        data = dataset.LazyMRCData(args.particles, norm=(0,1), real_data=False, window=False, in_mem=False,
+                                   invert_data=args.invert_data, datadir=args.datadir, ind=args.ind)
         tilt = None
     else:
         data = dataset.TiltMRCData(args.particles, args.tilt, norm=(0,1), invert_data=args.invert_data, datadir=args.datadir, ind=args.ind)
-        tilt = torch.tensor(utils.xrot(args.tilt_deg).astype(np.float32))
+        tilt = torch.tensor(utils.xrot(args.tilt_deg).astype(np.float32), device=device)
     D = data.D
     Nimg = data.N
 
-    lattice = Lattice(D, extent=D//2)
+    lattice = Lattice(D, extent=D//2, device=device)
 
-    posetracker = PoseTracker.load(args.poses, Nimg, D, None, args.ind)
+    # translations are stored as a fraction of the box, D-1 pixels
+    posetracker = PoseTracker.load(args.poses, Nimg, D-1, None, args.ind)
 
     if args.ctf is not None:
         log('Loading ctf params from {}'.format(args.ctf))
         ctf_params = ctf.load_ctf_for_training(D-1, args.ctf)
-        ctf_params = torch.tensor(ctf_params)
-        if args.ind is not None: ctf_params = ctf_params[ind]
+        if args.ind is not None: ctf_params = ctf_params[args.ind]
+        assert ctf_params.shape == (Nimg, 8), f"Input ctf params have shape {ctf_params.shape} but expected ({Nimg},8)"
+        ctf_params = torch.tensor(ctf_params, device=device)
     else: ctf_params = None
-    Apix = ctf_params[0,0] if ctf_params is not None else 1
+    Apix = float(ctf_params[0,0]) if ctf_params is not None else 1
 
-    V = torch.zeros((D,D,D))
-    counts = torch.zeros((D,D,D))
+    V = torch.zeros((D,D,D), device=device)
+    counts = torch.zeros((D,D,D), device=device)
     
     mask = lattice.get_circular_mask(D//2)
 
@@ -114,10 +116,12 @@ def main(args):
     for ii in iterator:
         if ii%100==0: log('image {}'.format(ii))
         r, t = posetracker.get_pose(ii)
+        r = r.to(device)
+        if t is not None: t = t.to(device)
         ff = data.get(ii)
         if tilt is not None:
             ff, ff_tilt = ff # EW
-        ff = torch.tensor(ff)
+        ff = torch.tensor(ff, device=device)
         ff = ff.view(-1)[mask]
         if ctf_params is not None:
             freqs = lattice.freqs2d/ctf_params[ii,0]
@@ -130,7 +134,7 @@ def main(args):
 
         # tilt series
         if args.tilt is not None:
-            ff_tilt = torch.tensor(ff_tilt)
+            ff_tilt = torch.tensor(ff_tilt, device=device)
             ff_tilt = ff_tilt.view(-1)[mask]
             if ctf_params is not None:
                 ff_tilt *= c.sign()
