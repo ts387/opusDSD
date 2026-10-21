@@ -41,6 +41,9 @@ def main(args):
     if args.labels is not None:
         labels = utils.load_pkl(args.labels)
         log(f'Read labels from {args.labels}')
+        if len(labels) != N:
+            raise ValueError(f'{args.labels} labels {len(labels)} particles but {args.input} has {N}, '
+                             'pass the starfile the model was trained on (e.g. one filtered with the --ind used in training)')
         for i in range(labels.min(), labels.max()+1):
             out_file = args.outdir + "/pre" + str(i) + ".star"
             log(f'Writing {np.sum(labels==i)} particles in cluster {i} to {out_file}')

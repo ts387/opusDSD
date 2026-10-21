@@ -1,3 +1,4 @@
+set -e
 if [[ $# -ge 5 && "$5" != --* ]]; then
     PSAMPLE="$5"
     EXTRA_ARGS=("${@:6}")

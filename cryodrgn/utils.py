@@ -656,6 +656,24 @@ def load_torch_pkl(zfile):
     return load_z
 
 
+def select_rows(x, ind, N_full, what):
+    '''
+    The rows of x for the particles selected by ind
+
+    x lists either every particle of the stack (N_full rows), and the rows ind are taken, or only the
+    particles of the selection already, in its order (len(ind) rows), e.g. a pose.N.pkl of a run with
+    --ind. Any other length belongs to some other selection of particles and is an error.
+    '''
+    if ind is None:
+        return x
+    ind = np.asarray(ind).reshape(-1)
+    if len(x) == N_full:
+        return x[ind]
+    if len(x) == len(ind):
+        return x
+    raise ValueError(f'{what} has {len(x)} rows, but the particle stack has {N_full} particles and --ind '
+                     f'selects {len(ind)} of them')
+
 def save_pkl(data, out_pkl, mode='wb'):
     if mode == 'wb' and os.path.exists(out_pkl):
         vlog(f'Warning: {out_pkl} already exists. Overwriting.')

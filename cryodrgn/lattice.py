@@ -256,12 +256,12 @@ class Grid:
 
 
 class Lattice:
-    def __init__(self, D, extent=0.5, ignore_DC=True):
+    def __init__(self, D, extent=0.5, ignore_DC=True, device=None):
         assert D % 2 == 1, "Lattice size must be odd"
         x0, x1 = np.meshgrid(np.linspace(-extent, extent, D, endpoint=True),
                              np.linspace(-extent, extent, D, endpoint=True))
         coords = np.stack([x0.ravel(),x1.ravel(),np.zeros(D**2)],1).astype(np.float32)
-        self.coords = torch.tensor(coords)
+        self.coords = torch.tensor(coords, device=device)
         self.extent = extent
         self.D = D
         self.D2 = int(D/2)
@@ -269,7 +269,7 @@ class Lattice:
         # todo: center should now just be 0,0; check Lattice.rotate...
         # c = 2/(D-1)*(D/2) -1
         # self.center = torch.tensor([c,c]) # pixel coordinate for img[D/2,D/2]
-        self.center = torch.tensor([0.,0.])
+        self.center = torch.tensor([0.,0.], device=device)
 
         self.square_mask = {}
         self.circle_mask = {}

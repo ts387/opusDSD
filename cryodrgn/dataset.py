@@ -39,6 +39,40 @@ def load_particles(mrcs_txt_star, lazy=False, datadir=None, relion31=False, retu
     else:
         return particles, header
 
+def check_ind(ind, N):
+    '''
+    ind as an integer array, if it selects distinct particles of a stack of N
+
+    Poses, ctf and other per-particle files are filtered with ind when they list the whole stack and
+    taken as they are when they list len(ind) particles (see utils.select_rows). A reordering of the
+    whole stack, or a particle listed twice, would make the two cases impossible to tell apart.
+    '''
+    ind = np.asarray(ind).reshape(-1)
+    if not np.issubdtype(ind.dtype, np.integer):
+        raise ValueError(f'--ind must hold integer particle indices, got dtype {ind.dtype}')
+    if len(ind) == 0:
+        raise ValueError('--ind selects no particles')
+    if ind.min() < 0 or ind.max() >= N:
+        raise ValueError(f'--ind holds indices in [{ind.min()}, {ind.max()}] but the particle stack has only {N} images')
+    if len(np.unique(ind)) != len(ind):
+        raise ValueError('--ind lists some particles more than once')
+    if len(ind) == N and not np.array_equal(ind, np.arange(N)):
+        raise ValueError(f'--ind lists all {N} particles of the stack, but in another order: leave out --ind, or list them '
+                         'in stack order')
+    return ind
+
+def filter_particles(particles, ind):
+    '''
+    Keep the particles selected by ind, in the order ind lists them
+
+    The i-th image of the filtered stack is particles[ind[i]], so everything indexed per image
+    (poses, ctf, z) has to be filtered with the same ind to stay aligned with it
+    '''
+    N = len(particles)
+    ind = check_ind(ind, N)
+    log(f'Filtering {N} particles down to {len(ind)} with --ind')
+    return [particles[i] for i in ind]
+
 
 class LazyMRCData(data.Dataset):
     '''
@@ -48,6 +82,9 @@ class LazyMRCData(data.Dataset):
                  window=True, datadir=None, relion31=False, window_r=0.85, in_mem=True):
         #assert not keepreal, 'Not implemented error'
         particles = load_particles(mrcfile, True, datadir=datadir, relion31=relion31)
+        self.N_full = len(particles)  # before --ind, the size per-particle files of the whole stack have
+        if ind is not None:
+            particles = filter_particles(particles, ind)
         N = len(particles)
         ny, nx = particles[0].get().shape
         assert ny == nx, "Images must be square"
@@ -429,11 +466,14 @@ class TiltMRCData(data.Dataset):
         if ind is not None:
             particles_real = load_particles(mrcfile, True, datadir)
             particles_tilt_real = load_particles(mrcfile_tilt, True, datadir)
+            self.N_full = len(particles_real)
+            ind = check_ind(ind, self.N_full)
             particles_real = np.array([particles_real[i].get() for i in ind], dtype=np.float32)
             particles_tilt_real = np.array([particles_tilt_real[i].get() for i in ind], dtype=np.float32)
         else:
             particles_real = load_particles(mrcfile, False, datadir)
             particles_tilt_real = load_particles(mrcfile_tilt, False, datadir)
+            self.N_full = len(particles_real)
 
         N, ny, nx = particles_real.shape
         assert ny == nx, "Images must be square"

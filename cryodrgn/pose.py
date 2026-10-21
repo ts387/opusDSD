@@ -278,7 +278,7 @@ class PoseTracker(nn.Module):
         torch.save({"mu": self.mu, "nn": self.nearest_poses, "multi_mu": self.multi_mu}, filename)
 
     @classmethod
-    def load(cls, infile, Nimg, D, emb_type=None, ind=None, deform=False, deform_emb_size=2, latents=None, batch_size=None, affine_dim=4):
+    def load(cls, infile, Nimg, D, emb_type=None, ind=None, deform=False, deform_emb_size=2, latents=None, batch_size=None, affine_dim=4, Nfull=None):
         '''
         Return an instance of PoseTracker
 
@@ -291,6 +291,8 @@ class PoseTracker(nn.Module):
             D:                  Box size (pixels)
             emb_type:           SO(3) embedding type if refining poses
             ind:                Index array if poses are being filtered
+            Nfull:              Number of particles in the stack before filtering, which tells a pose file of the whole
+                                stack from one already filtered (without it, a file longer than Nimg is filtered)
         '''
         # load pickle
         if type(infile) is str: infile = [infile]
@@ -301,54 +303,46 @@ class PoseTracker(nn.Module):
             poses = utils.load_pkl(infile[0])
             if type(poses) != tuple: poses = (poses,)
 
-        # rotations
-        rots = poses[0]
         if ind is not None:
-            if len(rots) > Nimg: # HACK
-                rots = rots[ind]
+            ind = np.asarray(ind).reshape(-1)  # as the stack has it (dataset.check_ind)
+
+        def select(x, what):
+            if ind is None:
+                return x
+            if Nfull is not None:
+                return utils.select_rows(x, ind, Nfull, what)
+            return x[ind] if len(x) > Nimg else x # HACK, for callers that don't know the size of the stack
+
+        # rotations
+        rots = select(poses[0], 'the rotations')
         assert rots.shape == (Nimg,3,3), f"Input rotations have shape {rots.shape} but expected ({Nimg},3,3)"
 
-        body_eulers, body_trans = None, None
+        eulers, body_eulers, body_trans = None, None, None
 
         # translations if they exist
         if len(poses) == 2:
-            trans = poses[1]
-            if ind is not None:
-                if len(trans) > Nimg: # HACK
-                    trans = trans[ind]
+            trans = select(poses[1], 'the translations')
             assert trans.shape == (Nimg,2), f"Input translations have shape {trans.shape} but expected ({Nimg},2)"
             assert np.all(trans <= 1), "ERROR: Old pose format detected. Translations must be in units of fraction of box."
             trans *= D # convert from fraction to pixels
         elif len(poses) == 3:
-            trans = poses[1]
-            if ind is not None:
-                if len(trans) > Nimg: # HACK
-                    trans = trans[ind]
+            trans = select(poses[1], 'the translations')
             assert trans.shape == (Nimg,2) or trans.shape == (Nimg, 3), f"Input translations have shape {trans.shape} but expected ({Nimg},2/3)"
             assert np.all(trans <= 1), "ERROR: Old pose format detected. Translations must be in units of fraction of box."
             trans *= D # convert from fraction to pixels
             log("loaded eulers")
-            eulers = poses[2]
-            if ind is not None:
-                if len(trans) > Nimg: # HACK
-                    eulers = eulers[ind]
-            assert eulers.shape == (Nimg,3), f"Input eulers have shape {trans.shape} but expected ({Nimg},3)"
+            eulers = select(poses[2], 'the eulers')
+            assert eulers.shape == (Nimg,3), f"Input eulers have shape {eulers.shape} but expected ({Nimg},3)"
         elif len(poses) > 3:
-            trans = poses[1]
-            if ind is not None:
-                if len(trans) > Nimg: # HACK
-                    trans = trans[ind]
+            trans = select(poses[1], 'the translations')
             assert trans.shape == (Nimg,2), f"Input translations have shape {trans.shape} but expected ({Nimg},2)"
             assert np.all(trans <= 1), "ERROR: Old pose format detected. Translations must be in units of fraction of box."
             trans *= D # convert from fraction to pixels
             log("loaded eulers")
-            eulers = poses[2]
-            if ind is not None:
-                if len(trans) > Nimg: # HACK
-                    eulers = eulers[ind]
+            eulers = select(poses[2], 'the eulers')
             assert eulers.shape == (Nimg,3), f"Input eulers have shape {eulers.shape} but expected ({Nimg},3)"
-            body_eulers = poses[3]
-            body_trans = poses[4]
+            body_eulers = select(poses[3], 'the body eulers')
+            body_trans = select(poses[4], 'the body translations')
             assert body_eulers.shape[0] == Nimg and body_eulers.shape[2] == 3, f"Input eulers have shape {body_eulers.shape} but expected ({Nimg},3)"
             assert body_trans.shape[0] == Nimg and body_trans.shape[2] == 2 and body_trans.shape[1] == body_eulers.shape[1], \
                                 f"Input translations have shape {body_trans.shape} but expected ({Nimg},2)"
@@ -356,7 +350,6 @@ class PoseTracker(nn.Module):
         else:
             log('WARNING: No translations provided')
             trans = None
-            eulers = None
 
         if latents is not None:
             load_kwargs = {}
@@ -364,6 +357,8 @@ class PoseTracker(nn.Module):
                 # PyTorch is new enough to support this arg (e.g. >= 2.x)
                 load_kwargs["weights_only"] = False  # or True, if you want safe weights-only loading
             latents = torch.load(latents, **load_kwargs)
+            assert len(latents["mu"]) == Nimg, f"Input latents have {len(latents['mu'])} codes but expected {Nimg}, " \
+                                               "they have to come from a run with the same --ind"
 
         return cls(rots, trans, D, emb_type, deform, deform_emb_size, eulers, latents, batch_size, body_eulers_np=body_eulers, body_trans_np=body_trans, affine_dim=affine_dim)
 

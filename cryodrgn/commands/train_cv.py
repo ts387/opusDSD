@@ -719,7 +719,8 @@ def main(args):
     do_deform   = args.warp_type == 'deform' or args.encode_mode == 'grad'
     # use D-1 instead of D
     posetracker = PoseTracker.load(args.poses, Nimg, D-1, 's2s2' if do_pose_sgd else None, ind,
-                                   deform=do_deform, deform_emb_size=args.zdim, latents=args.latents, batch_size=args.batch_size)
+                                   deform=do_deform, deform_emb_size=args.zdim, latents=args.latents, batch_size=args.batch_size,
+                                   Nfull=data.N_full)
     posetracker.to(device)
     pose_optimizer = torch.optim.SparseAdam(list(posetracker.parameters()), lr=args.pose_lr) if do_pose_sgd else None
 
@@ -730,14 +731,16 @@ def main(args):
         flog('Loading ctf params from {}'.format(args.ctf))
         ctf_params = ctf.load_ctf_for_training(D-1, args.ctf)
         log('first ctf params is: {}'.format(ctf_params[0,:]))
-        if args.ind is not None: ctf_params = ctf_params[ind]
-        assert ctf_params.shape == (Nimg, 8)
+        ctf_params = utils.select_rows(ctf_params, ind, data.N_full, args.ctf)
+        assert ctf_params.shape == (Nimg, 8), f"Input ctf params have shape {ctf_params.shape} but expected ({Nimg},8)"
         ctf_params = torch.tensor(ctf_params).to(device)
     else: ctf_params = None
 
     if args.group is not None:
         grp_vol_size = 128
         group_assignment = ctf.load_group_for_training(args.group)
+        group_assignment = utils.select_rows(np.asarray(group_assignment), ind, data.N_full, args.group)
+        assert len(group_assignment) == Nimg, f"Input group assignments have length {len(group_assignment)} but expected {Nimg}"
         #group_assignment = posetracker.euler_groups
         if args.group_stat is not None:
             group_stat = GroupStat.load(group_assignment, args.group_stat, device, D, vol_size=grp_vol_size,
@@ -863,6 +866,8 @@ def main(args):
     else:
         log(f'loading train validation split from {args.split}')
         rand_split = torch.load(args.split)
+        assert len(rand_split) == Nimg, f"{args.split} splits {len(rand_split)} images but the dataset has {Nimg}, " \
+                                        "pass a new --split when --ind changes"
     Nimg_train = int(Nimg*(1. - args.valfrac))
     Nimg_test = int(Nimg*args.valfrac)
     train_split, val_split = rand_split[:Nimg_train], rand_split[Nimg_train:]
