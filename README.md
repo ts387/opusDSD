@@ -133,7 +133,7 @@ The inference pipeline of our program can run on any GPU which supports cuda and
 
 <a href="https://colab.research.google.com/github/ts387/opusDSD/blob/main/colab/OPUS_DSD_Colab.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
-The notebook [colab/OPUS_DSD_Colab.ipynb](colab/OPUS_DSD_Colab.ipynb) installs OPUS-DSD on a Colab GPU and runs the whole workflow from forms: data preparation from a RELION STAR file or from cryoDRGN inputs (pose.pkl, ctf.pkl and a particle stack, e.g. made from cryoSPARC), mask creation, training in the background with checkpoints on Google Drive, latent space analysis, volume generation with a 3D viewer, multi-body dynamics, and export of per-cluster STAR files. It can generate a small synthetic dataset to try everything out first.
+The notebook [colab/OPUS_DSD_Colab.ipynb](colab/OPUS_DSD_Colab.ipynb) installs OPUS-DSD on a Colab GPU and runs the whole workflow from forms: data preparation from a RELION STAR file or from cryoDRGN inputs (pose.pkl, ctf.pkl and a particle stack, e.g. made from cryoSPARC), mask creation, training in the background with checkpoints on Google Drive, latent space analysis, volume generation with a 3D viewer, multi-body dynamics, export of per-cluster STAR files, and a last step that makes sure everything has reached Google Drive. It can generate a small synthetic dataset to try everything out first.
 
 # prepare data <a name="preparation"></a>
 
