@@ -17,7 +17,7 @@ import torch
 
 from cryodrgn import utils
 from cryodrgn.commands import parse_pose_star
-from cryodrgn.dataset import LazyMRCData
+from cryodrgn.dataset import LazyMRCData, TiltMRCData
 from cryodrgn.pose import PoseTracker
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -43,6 +43,28 @@ def test_lazy_data_keeps_the_indexed_particles_in_order(kwargs):
 def test_indices_outside_the_stack_are_an_error(ind):
     with pytest.raises(ValueError, match=f'only {N} images'):
         LazyMRCData(STACK, ind=np.array(ind))
+
+
+@pytest.mark.parametrize('ind, message', [([3, 7, 3], 'more than once'),
+                                          (np.random.default_rng(1).permutation(N), 'in another order')],
+                         ids=['duplicates', 'reordered_full_stack'])
+def test_ambiguous_indices_are_an_error(ind, message):
+    '''A file of the whole stack and one already filtered would have the same length, so poses could not follow'''
+    with pytest.raises(ValueError, match=message):
+        LazyMRCData(STACK, ind=np.array(ind))
+
+
+def test_the_whole_stack_in_order_is_fine():
+    data = LazyMRCData(STACK, ind=np.arange(N))
+    assert data.N == data.N_full == N
+
+
+def test_datasets_know_the_size_of_the_unfiltered_stack():
+    assert LazyMRCData(STACK, ind=IND).N_full == N
+    assert LazyMRCData(STACK).N_full == N
+    assert TiltMRCData(STACK, f'{DATA}/hand_tilt.mrcs', ind=IND).N_full == N
+    with pytest.raises(ValueError, match='more than once'):
+        TiltMRCData(STACK, f'{DATA}/hand_tilt.mrcs', ind=np.array([1, 1]))
 
 
 def write_pkl(path, obj):
@@ -92,6 +114,39 @@ def test_poses_without_eulers_load(tmp_path):
     tracker = PoseTracker.load(write_pkl(tmp_path/'pose.pkl', (rot, trans)), len(IND), D, None, IND)
     assert tracker.eulers is None
     assert torch.allclose(tracker.trans, torch.tensor(trans[IND]*D).float())
+
+
+@pytest.mark.parametrize('rows', ['full', 'filtered'])
+def test_files_of_the_whole_stack_are_filtered_and_files_of_the_run_kept(tmp_path, rows):
+    '''Given the size of the stack, as the commands pass it, poses and ctf follow the particles of the run'''
+    rot, trans, euler = random_poses(N)
+    ctf = np.arange(N, dtype=np.float32)[:, None].repeat(9, 1)
+    if rows == 'filtered':
+        rot, trans, euler, ctf = rot[IND], trans[IND], euler[IND], ctf[IND]
+    data = LazyMRCData(STACK, norm=(0, 1), ind=IND)
+    tracker = PoseTracker.load(write_pkl(tmp_path/'pose.pkl', (rot, trans, euler)), data.N, D, None, IND,
+                               Nfull=data.N_full)
+    full_euler = random_poses(N)[2]
+    assert torch.allclose(tracker.eulers, torch.tensor(full_euler[IND]).float())
+    assert np.array_equal(utils.select_rows(ctf, IND, data.N_full, 'ctf')[:, 0], IND)
+
+
+def test_indices_saved_as_a_column_select_the_same_particles(tmp_path):
+    '''np.argwhere gives indices of shape (K, 1), which the stack flattens; the poses and ctf have to as well'''
+    rot, trans, euler = random_poses(N)
+    tracker = PoseTracker.load(write_pkl(tmp_path/'pose.pkl', (rot, trans, euler)), len(IND), D, None, IND[:, None],
+                               Nfull=N)
+    assert torch.allclose(tracker.eulers, torch.tensor(euler[IND]).float())
+    assert np.array_equal(utils.select_rows(np.arange(N), IND[:, None], N, 'ctf'), IND)
+
+
+def test_per_particle_files_of_another_selection_are_an_error(tmp_path):
+    '''A pose.N.pkl of a run with a different --ind used to be indexed as if it were the whole stack'''
+    rot, trans, euler = (x[:60] for x in random_poses(N))
+    with pytest.raises(ValueError, match='the rotations has 60 rows, but the particle stack has 100'):
+        PoseTracker.load(write_pkl(tmp_path/'pose.pkl', (rot, trans, euler)), len(IND), D, None, IND, Nfull=N)
+    with pytest.raises(ValueError, match='ctf.pkl has 60 rows'):
+        utils.select_rows(np.zeros((60, 9)), IND, N, 'ctf.pkl')
 
 
 STAR = '''data_

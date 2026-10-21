@@ -762,7 +762,7 @@ def main(args):
     # use D-1 instead of D
     posetracker = PoseTracker.load(args.poses, Nimg, D-1, 's2s2' if do_pose_sgd else None, ind,
                                    deform=do_deform, deform_emb_size=args.zdim, latents=args.latents,
-                                   batch_size=args.batch_size, affine_dim=args.zaffdim)
+                                   batch_size=args.batch_size, affine_dim=args.zaffdim, Nfull=data.N_full)
     posetracker.to(device)
     pose_optimizer = torch.optim.SparseAdam(list(posetracker.parameters()), lr=args.pose_lr) if do_pose_sgd else None
 
@@ -779,7 +779,7 @@ def main(args):
         flog('Loading ctf params from {}'.format(args.ctf))
         ctf_params = ctf.load_ctf_for_training(D-1, args.ctf)
         log('first ctf params is: {}'.format(ctf_params[0,:]))
-        if args.ind is not None: ctf_params = ctf_params[ind]
+        ctf_params = utils.select_rows(ctf_params, ind, data.N_full, args.ctf)
         assert ctf_params.shape == (Nimg, 8), f"Input ctf params have shape {ctf_params.shape} but expected ({Nimg},8)"
         ctf_params = torch.tensor(ctf_params).to(device)
     else: ctf_params = None
@@ -787,7 +787,7 @@ def main(args):
     if args.group is not None:
         grp_vol_size = 128
         group_assignment = ctf.load_group_for_training(args.group)
-        if ind is not None: group_assignment = np.asarray(group_assignment)[ind]
+        group_assignment = utils.select_rows(np.asarray(group_assignment), ind, data.N_full, args.group)
         assert len(group_assignment) == Nimg, f"Input group assignments have length {len(group_assignment)} but expected {Nimg}"
         #group_assignment = posetracker.euler_groups
         if args.group_stat is not None:

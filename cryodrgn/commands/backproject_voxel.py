@@ -91,12 +91,12 @@ def main(args):
     lattice = Lattice(D, extent=D//2, device=device)
 
     # translations are stored as a fraction of the box, D-1 pixels
-    posetracker = PoseTracker.load(args.poses, Nimg, D-1, None, args.ind)
+    posetracker = PoseTracker.load(args.poses, Nimg, D-1, None, args.ind, Nfull=data.N_full)
 
     if args.ctf is not None:
         log('Loading ctf params from {}'.format(args.ctf))
         ctf_params = ctf.load_ctf_for_training(D-1, args.ctf)
-        if args.ind is not None: ctf_params = ctf_params[args.ind]
+        ctf_params = utils.select_rows(ctf_params, args.ind, data.N_full, args.ctf)
         assert ctf_params.shape == (Nimg, 8), f"Input ctf params have shape {ctf_params.shape} but expected ({Nimg},8)"
         ctf_params = torch.tensor(ctf_params, device=device)
     else: ctf_params = None

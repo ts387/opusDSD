@@ -113,6 +113,36 @@ def test_ind_backprojects_the_selected_particles(tmp_path):
     assert full[1].get_apix() == pytest.approx(6.)
 
 
+def toy_ctf(N, L, seed=1):
+    rng = np.random.default_rng(seed)
+    ctf = np.zeros((N, 9))
+    ctf[:, 0], ctf[:, 1] = L, 6.  # box size and apix
+    ctf[:, 2] = rng.uniform(5000, 20000, N)  # dfu
+    ctf[:, 3] = ctf[:, 2] + 200  # dfv
+    ctf[:, 4:8] = 45., 300., 2.7, 0.1  # dfang, kv, cs, amplitude contrast
+    return ctf
+
+
+def test_ind_takes_poses_and_ctf_already_cut_to_the_selection(tmp_path):
+    '''Poses and ctf may list the whole stack or only the particles --ind selects, e.g. pose.N.pkl of an --ind run'''
+    imgs, _ = mrc.parse_mrc(PROJECTIONS)
+    rot, trans = pickle.load(open(f'{DATA}/toy_rot_trans.pkl', 'rb'))
+    ctf = toy_ctf(*imgs.shape[:2])
+    ind = np.sort(np.random.default_rng(2).permutation(len(imgs))[:300])
+    args = ('--ind', write_pkl(tmp_path/'ind.pkl', ind))
+    whole = backproject(PROJECTIONS, '--poses', write_pkl(tmp_path/'poses.pkl', (rot, trans)),
+                        '--ctf', write_pkl(tmp_path/'ctf.pkl', ctf), *args, '-o', tmp_path/'whole.mrc')
+    cut = backproject(PROJECTIONS, '--poses', write_pkl(tmp_path/'cut_poses.pkl', (rot[ind], trans[ind])),
+                      '--ctf', write_pkl(tmp_path/'cut_ctf.pkl', ctf[ind]), *args, '-o', tmp_path/'cut.mrc')
+    assert np.allclose(whole[0], cut[0], atol=1e-5*np.abs(whole[0]).max())
+    with pytest.raises(ValueError, match='has 600 rows'):
+        backproject(PROJECTIONS, '--poses', write_pkl(tmp_path/'other_poses.pkl', (rot[:600], trans[:600])),
+                    *args, '-o', tmp_path/'other.mrc')
+    with pytest.raises(ValueError, match='has 600 rows'):
+        backproject(PROJECTIONS, '--poses', tmp_path/'poses.pkl', '--ctf', write_pkl(tmp_path/'other_ctf.pkl', ctf[:600]),
+                    *args, '-o', tmp_path/'other.mrc')
+
+
 def test_ctf_for_a_different_stack_is_an_error(tmp_path):
     with pytest.raises(AssertionError, match='ctf params'):
         backproject(f'{DATA}/hand.mrcs', '--poses', f'{DATA}/hand_rot.pkl', '--ctf', f'{DATA}/ctf2.pkl',
